@@ -1,0 +1,23 @@
+# This workflow creates a new comment from a template to an issue
+# when it is opened
+
+name: Add comment on open
+on:
+  workflow_call:
+  issues:
+    types:
+      - opened
+jobs:
+  add-comment:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Add comment
+        uses: peter-evans/create-or-update-comment@a35cf36e5301d70b76f316e867e7788a55a31dae
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            👋 Hi @${{ github.event.issue.user.login }} and Thank you for opening this issue.
+            Please contact AppsFlyer support through the Customer Assistant Chatbot for assistance with troubleshooting issues or product guidance.
+            To do so, please follow [this article](https://support.appsflyer.com/hc/en-us/articles/23583984402193-Using-the-Customer-Assistant-Chatbot). 
