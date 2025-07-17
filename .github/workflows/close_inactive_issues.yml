@@ -5,12 +5,12 @@ on:
     - cron: "0 10 * * *" # Runs daily at 10:00 UTC
 
 jobs:
-  close-issues:
+  stale:
     runs-on: ubuntu-latest
-    permissions:
-        actions: write
-        issues: write
-      pull-requests: write
+  permissions:
+    actions: write
+    issues: write
+    pull-requests: write
     steps:
       - uses: actions/stale@v9
         with:
