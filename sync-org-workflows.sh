@@ -39,11 +39,6 @@ ISSUE_TEMPLATE_FILE="appsflyer-issue-template.yml"
 REPOS=$(gh repo list $ORG --json name,isArchived --jq '.[] | select(.isArchived==false) | .name')
 
 for REPO in $REPOS; do
-  # For testing: only process appsflyer-cordova-plugin
-  if [ "$REPO" != "appsflyer-cordova-plugin" ]; then
-    echo "Skipping $REPO (testing mode: only syncing appsflyer-cordova-plugin)"
-    continue
-  fi
   echo "Processing $REPO..."
 
   # Clone the repo
