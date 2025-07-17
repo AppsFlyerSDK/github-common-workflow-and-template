@@ -151,7 +151,7 @@ for REPO in $REPOS; do
   fi
 
   # Attempt to merge the PR (squash and delete branch)
-  # gh pr merge "$PR_NUMBER" --squash --admin --delete-branch || echo "Could not merge PR (maybe branch protection or approval required)"
+  gh pr merge "$PR_NUMBER" --squash --admin --delete-branch || echo "Could not merge PR (maybe branch protection or approval required)"
 
   # Go back and clean up
   cd ..
