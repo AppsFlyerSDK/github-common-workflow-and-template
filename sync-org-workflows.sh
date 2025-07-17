@@ -1,4 +1,32 @@
 #!/bin/bash
+# ------------------------------------------------------------------------------
+# sync-org-workflows.sh
+#
+# This script synchronizes shared GitHub Actions workflows and issue templates
+# from this repository to all active repositories in the AppsFlyerSDK organization.
+# It ensures that all repos are up-to-date with the org standards, removes obsolete
+# templates, and opens a pull request for any changes.
+#
+# Usage:
+#   ./sync-org-workflows.sh
+#
+# Requirements:
+#   - gh CLI (https://cli.github.com/) must be installed and authenticated
+#   - jq must be installed
+#   - Write access to all target repositories
+#
+# What it does:
+#   1. Lists all non-archived repos in the org
+#   2. Clones each repo and creates a new branch
+#   3. Updates workflows and issue templates from the shared source
+#   4. Removes obsolete issue templates
+#   5. Commits and pushes changes if any
+#   6. Opens a pull request for each updated repo
+#   7. Approves and merges the PR automatically (with a review comment indicating automation)
+#   8. Cleans up local clones
+#
+# Note: This script is intended to be run by org maintainers or automation systems.
+# ------------------------------------------------------------------------------
 
 # Organization and branch settings
 ORG="AppsFlyerSDK"
@@ -78,9 +106,19 @@ for REPO in $REPOS; do
   git push --set-upstream origin "$BRANCH_NAME"
 
   # Open a PR
-  gh pr create --title "Sync org-wide workflows and issue template" \
+  PR_URL=$(gh pr create --title "Sync org-wide workflows and issue template" \
     --body "This PR updates the repository with the latest shared workflows and issue template from the org standard." \
-    --base main
+    --base main)
+
+
+  # Extract PR number from the URL
+  PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+
+  # Attempt to approve the PR
+  gh pr review "$PR_NUMBER" --approve --body "Approved automatically by sync-org-workflows.sh automation script." || echo "Could not approve PR (maybe you are the author or already approved)"
+
+  # Attempt to merge the PR (squash and delete branch)
+  gh pr merge "$PR_NUMBER" --squash --admin --delete-branch || echo "Could not merge PR (maybe branch protection or approval required)"
 
   # Go back and clean up
   cd ..

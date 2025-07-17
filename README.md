@@ -40,19 +40,30 @@ Copy the YAML files from `.github/ISSUE_TEMPLATE/` in this repo to your repo's `
 
 ### 3. Sync All Repos Automatically
 
-Run the provided script to update all org repos:
+#### sync-org-workflows.sh
 
+This script automates the process of keeping all organization repositories up-to-date with the latest shared workflows and issue templates.
+
+**What it does:**
+- Lists all non-archived repos in the org
+- Clones each repo and creates a new branch
+- Updates workflows and issue templates from the shared source
+- Removes obsolete issue templates
+- Commits and pushes changes if any
+- Opens a pull request for each updated repo
+- Cleans up local clones
+
+**Usage:**
 ```sh
 ./sync-org-workflows.sh
 ```
-- Requires [GitHub CLI (`gh`)](https://cli.github.com/) and `jq`.
-- The script will:
-  - Clone each repo in the org
-  - Update workflows and issue templates (only if changed)
-  - Remove obsolete templates
-  - Create a branch and open a PR for each updated repo
 
-> **Note:** You need write access to all target repos and a valid `gh` authentication.
+**Requirements:**
+- [GitHub CLI (`gh`)](https://cli.github.com/) (must be authenticated)
+- `jq` (for JSON processing)
+- Write access to all target repos
+
+> See the top of `sync-org-workflows.sh` for full documentation and workflow details.
 
 ## Contributing
 
