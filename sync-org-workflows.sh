@@ -30,7 +30,7 @@
 
 # Organization and branch settings
 ORG="AppsFlyerSDK"
-BRANCH_NAME="sync-org-workflows-$(date +%Y%m%d)"
+BRANCH_NAME="sync-org-workflows-$(date +%Y%m%d-%H%M%S)"
 WORKFLOWS_DIR="org-reusable-workflow-stubs"
 ISSUE_TEMPLATE_DIR=".github/ISSUE_TEMPLATE"
 ISSUE_TEMPLATE_FILE="appsflyer-issue-template.yml"
@@ -39,6 +39,11 @@ ISSUE_TEMPLATE_FILE="appsflyer-issue-template.yml"
 REPOS=$(gh repo list $ORG --json name,isArchived --jq '.[] | select(.isArchived==false) | .name')
 
 for REPO in $REPOS; do
+  # For testing: only process appsflyer-cordova-plugin
+  if [ "$REPO" != "appsflyer-cordova-plugin" ]; then
+    echo "Skipping $REPO (testing mode: only syncing appsflyer-cordova-plugin)"
+    continue
+  fi
   echo "Processing $REPO..."
 
   # Clone the repo
@@ -65,6 +70,15 @@ for REPO in $REPOS; do
 
   # Ensure .github/ISSUE_TEMPLATE exists
   mkdir -p .github/ISSUE_TEMPLATE
+
+  # Delete all .md files in the repo's ISSUE_TEMPLATE directory
+  for md_file in .github/ISSUE_TEMPLATE/*.md; do
+    if [ -f "$md_file" ]; then
+      rm -f "$md_file"
+      CHANGED=1
+      echo "Deleted obsolete markdown issue template: $md_file"
+    fi
+  done
 
   # Delete templates in the repo that are not in the shared project
   for repo_template in .github/ISSUE_TEMPLATE/*.yml; do
@@ -100,25 +114,44 @@ for REPO in $REPOS; do
     continue
   fi
 
-  # Add, commit, and push
-  git add .github/workflows/*.yml .github/ISSUE_TEMPLATE/*.yml
+  # Remove all non-yml files from .github/ISSUE_TEMPLATE/
+  for file in .github/ISSUE_TEMPLATE/*; do
+    if [ -f "$file" ] && [[ "$file" != *.yml ]]; then
+      git rm --ignore-unmatch "$file" 2>/dev/null || rm -f "$file"
+      CHANGED=1
+      echo "Deleted obsolete markdown or non-yml issue template: $file"
+    fi
+  done
+
+  # Stage deletions of any removed files
+  git add -u .github/ISSUE_TEMPLATE/
+
+  git add .github/workflows/*.yml .github/ISSUE_TEMPLATE/*
   git commit -m "Sync org-wide workflows and issue template"
   git push --set-upstream origin "$BRANCH_NAME"
 
-  # Open a PR
+  # Get the default branch name for the repo
+  DEFAULT_BRANCH=$(gh repo view "$ORG/$REPO" --json defaultBranchRef --jq .defaultBranchRef.name)
+
+  # Open a PR to the default branch
   PR_URL=$(gh pr create --title "Sync org-wide workflows and issue template" \
     --body "This PR updates the repository with the latest shared workflows and issue template from the org standard." \
-    --base main)
-
+    --base "$DEFAULT_BRANCH")
 
   # Extract PR number from the URL
   PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
 
-  # Attempt to approve the PR
-  gh pr review "$PR_NUMBER" --approve --body "Approved automatically by sync-org-workflows.sh automation script." || echo "Could not approve PR (maybe you are the author or already approved)"
+  # Attempt to approve the PR only if the current user is not the author
+  PR_AUTHOR=$(gh pr view "$PR_NUMBER" --json author --jq .author.login)
+  CURRENT_USER=$(gh api user --jq .login)
+  if [ "$PR_AUTHOR" != "$CURRENT_USER" ]; then
+    gh pr review "$PR_NUMBER" --approve --body "Approved automatically by sync-org-workflows.sh automation script." || echo "Could not approve PR"
+  else
+    echo "Skipping approval: cannot approve your own PR ($CURRENT_USER)"
+  fi
 
   # Attempt to merge the PR (squash and delete branch)
-  gh pr merge "$PR_NUMBER" --squash --admin --delete-branch || echo "Could not merge PR (maybe branch protection or approval required)"
+  # gh pr merge "$PR_NUMBER" --squash --admin --delete-branch || echo "Could not merge PR (maybe branch protection or approval required)"
 
   # Go back and clean up
   cd ..
