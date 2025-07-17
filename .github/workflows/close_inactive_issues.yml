@@ -2,8 +2,7 @@ name: Close inactive issues
 on:
   workflow_call:
   schedule:
-    # - cron: "0 10 * * *" # Runs daily at 10:00 UTC
-    - cron: "* * * * *"
+    - cron: "0 10 * * *" # Runs daily at 10:00 UTC
 jobs:
   close-issues:
     runs-on: ubuntu-latest
