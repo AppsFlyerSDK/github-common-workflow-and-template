@@ -4,9 +4,7 @@
 name: Add comment
 on:
   workflow_call:
-  issues:
-    types:
-      - labeled
+
 jobs:
   add-comment:
     if: github.event.label.name == 'support'

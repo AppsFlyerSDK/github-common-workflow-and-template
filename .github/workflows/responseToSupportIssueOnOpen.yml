@@ -4,9 +4,7 @@
 name: Add comment on open
 on:
   workflow_call:
-  issues:
-    types:
-      - opened
+
 jobs:
   add-comment:
     runs-on: ubuntu-latest

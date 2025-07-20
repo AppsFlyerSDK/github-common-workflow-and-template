@@ -1,8 +1,7 @@
 name: Close inactive issues
 on:
   workflow_call:
-  schedule:
-    - cron: "0 10 * * *" # Runs daily at 10:00 UTC
+
 jobs:
   close-issues:
     runs-on: ubuntu-latest
@@ -12,7 +11,7 @@ jobs:
     steps:
       - uses: actions/stale@v9
         with:
-          days-before-issue-stale: 30
+          days-before-issue-stale: 60
           days-before-issue-close: 14
           stale-issue-label: "stale"
           stale-issue-message: "This issue is stale because it has been open for 30 days with no activity."
