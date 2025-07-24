@@ -39,10 +39,24 @@ ISSUE_TEMPLATE_FILE="appsflyer-issue-template.yml"
 REPOS=$(gh repo list $ORG --json name,isArchived --jq '.[] | select(.isArchived==false) | .name')
 
 for REPO in $REPOS; do
+
+  # Skip the workflow template repository itself
+  if [ "$REPO" = "github-common-workflow-and-template" ]; then
+    echo "Skipping $REPO (workflow template repository)"
+    continue
+  fi
+
+  # Check if the repository is public, skip if private/internal
+  REPO_VISIBILITY=$(gh repo view "$ORG/$REPO" --json visibility --jq .visibility)
+  if [ "$REPO_VISIBILITY" != "PUBLIC" ]; then
+    echo "Skipping $REPO (not public, visibility: $REPO_VISIBILITY)"
+    continue
+  fi
+
   echo "Processing $REPO..."
 
-  # Clone the repo
-  git clone "https://github.com/$ORG/$REPO.git"
+  # Clone the repo (shallow clone for speed)
+  git clone --depth 1 --single-branch --quiet "https://github.com/$ORG/$REPO.git"
   cd "$REPO" || continue
 
   # Create and checkout new branch
@@ -125,13 +139,22 @@ for REPO in $REPOS; do
   git commit -m "Sync org-wide workflows and issue template"
   git push --set-upstream origin "$BRANCH_NAME"
 
+  # Wait a moment for the branch to be available on GitHub
+  sleep 5
+
   # Get the default branch name for the repo
   DEFAULT_BRANCH=$(gh repo view "$ORG/$REPO" --json defaultBranchRef --jq .defaultBranchRef.name)
 
   # Open a PR to the default branch
   PR_URL=$(gh pr create --title "Sync org-wide workflows and issue template" \
     --body "This PR updates the repository with the latest shared workflows and issue template from the org standard." \
-    --base "$DEFAULT_BRANCH")
+    --base "$DEFAULT_BRANCH" \
+    --head "$BRANCH_NAME") || {
+    echo "Failed to create PR for $REPO, continuing to next repo"
+    cd ..
+    rm -rf "$REPO"
+    continue
+  }
 
   # Extract PR number from the URL
   PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
