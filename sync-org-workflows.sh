@@ -35,14 +35,31 @@ WORKFLOWS_DIR="org-reusable-workflow-stubs"
 ISSUE_TEMPLATE_DIR=".github/ISSUE_TEMPLATE"
 ISSUE_TEMPLATE_FILE="appsflyer-issue-template.yml"
 
+# Flag to control whether to include appsflyer-issue-template.yml
+INCLUDE_APPSFLYER_TEMPLATE=false  # Set to false to exclude this template
+
 # Get all repo names in the org (excluding archived repos)
-REPOS=$(gh repo list $ORG --json name,isArchived --jq '.[] | select(.isArchived==false) | .name')
+REPOS=$(gh repo list $ORG --limit 1000 --json name,isArchived --jq '.[] | select(.isArchived==false) | .name')
 
 for REPO in $REPOS; do
+
+  # Skip the workflow template repository itself
+  if [ "$REPO" = "github-common-workflow-and-template" ]; then
+    echo "Skipping $REPO (workflow template repository)"
+    continue
+  fi
+
+  # Check if the repository is public, skip if private/internal
+  REPO_VISIBILITY=$(gh repo view "$ORG/$REPO" --json visibility --jq .visibility)
+  if [ "$REPO_VISIBILITY" != "PUBLIC" ]; then
+    echo "Skipping $REPO (not public, visibility: $REPO_VISIBILITY)"
+    continue
+  fi
+
   echo "Processing $REPO..."
 
-  # Clone the repo
-  git clone "https://github.com/$ORG/$REPO.git"
+  # Clone the repo (shallow clone for speed)
+  git clone --depth 1 --single-branch --quiet "https://github.com/$ORG/$REPO.git"
   cd "$REPO" || continue
 
   # Create and checkout new branch
@@ -93,13 +110,28 @@ for REPO in $REPOS; do
 
   # Compare and copy all issue templates from shared dir
   for src_iss in ../$ISSUE_TEMPLATE_DIR/*.yml; do
-    tgt_iss=".github/ISSUE_TEMPLATE/$(basename "$src_iss")"
+    template_name=$(basename "$src_iss")
+    tgt_iss=".github/ISSUE_TEMPLATE/$template_name"
+    
+    # Skip appsflyer-issue-template.yml if flag is false
+    if [ "$template_name" = "$ISSUE_TEMPLATE_FILE" ] && [ "$INCLUDE_APPSFLYER_TEMPLATE" = false ]; then
+      echo "Skipping $template_name (INCLUDE_APPSFLYER_TEMPLATE is false)"
+      continue
+    fi
+    
     if [ ! -f "$tgt_iss" ] || ! cmp -s "$src_iss" "$tgt_iss"; then
       cp -f "$src_iss" "$tgt_iss"
       CHANGED=1
       echo "Updated issue template: $tgt_iss"
     fi
   done
+
+  # Remove appsflyer-issue-template.yml if flag is false and file exists
+  if [ "$INCLUDE_APPSFLYER_TEMPLATE" = false ] && [ -f ".github/ISSUE_TEMPLATE/$ISSUE_TEMPLATE_FILE" ]; then
+    git rm --ignore-unmatch ".github/ISSUE_TEMPLATE/$ISSUE_TEMPLATE_FILE" 2>/dev/null || rm -f ".github/ISSUE_TEMPLATE/$ISSUE_TEMPLATE_FILE"
+    CHANGED=1
+    echo "Removed $ISSUE_TEMPLATE_FILE (INCLUDE_APPSFLYER_TEMPLATE is false)"
+  fi
 
   # Only continue if something changed
   if [ "$CHANGED" -eq 0 ]; then
@@ -125,13 +157,22 @@ for REPO in $REPOS; do
   git commit -m "Sync org-wide workflows and issue template"
   git push --set-upstream origin "$BRANCH_NAME"
 
+  # Wait a moment for the branch to be available on GitHub
+  sleep 5
+
   # Get the default branch name for the repo
   DEFAULT_BRANCH=$(gh repo view "$ORG/$REPO" --json defaultBranchRef --jq .defaultBranchRef.name)
 
   # Open a PR to the default branch
   PR_URL=$(gh pr create --title "Sync org-wide workflows and issue template" \
     --body "This PR updates the repository with the latest shared workflows and issue template from the org standard." \
-    --base "$DEFAULT_BRANCH")
+    --base "$DEFAULT_BRANCH" \
+    --head "$BRANCH_NAME") || {
+    echo "Failed to create PR for $REPO, continuing to next repo"
+    cd ..
+    rm -rf "$REPO"
+    continue
+  }
 
   # Extract PR number from the URL
   PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
