@@ -17,13 +17,13 @@ body:
         ℹ Please fill out this form as completely as possible to help us resolve your issue quickly.
 
   - type: input
-    id: plugin-version
+    id: email
     attributes:
-      label: Plugin Version
-      description: What version of the AppsFlyer plugin are you using? (e.g. 6.17.0)
-      placeholder: e.g. 6.17.0
+      label: Email
+      description: (Optional) Your AppsFlyer account email. This helps us identify your account and provide optimal support.
+      placeholder: e.g. user@example.com
     validations:
-      required: true
+      required: false
 
   - type: input
     id: app-id
@@ -33,15 +33,16 @@ body:
       placeholder: e.g. com.example.app or id1234567890
     validations:
       required: false
-
+      
   - type: input
-    id: email
+    id: plugin-version
     attributes:
-      label: Email
-      description: (Optional) Your AppsFlyer account email. This helps us identify your account and provide optimal support.
-      placeholder: e.g. user@example.com
+      label: Plugin/SDK Version
+      description: What version of the AppsFlyer plugin are you using? (e.g. 6.17.0)
+      placeholder: e.g. 6.17.0
     validations:
-      required: false
+      required: true
+
 
   - type: input
     id: platform
